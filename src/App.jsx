@@ -18,7 +18,7 @@ const ChatBot = () => {
 
     try {
       const res = await axios.post(
-        "http://5.9.96.58:5000/query",
+        "https://cors-anywhere.herokuapp.com/http://5.9.96.58:5000/query",
         {
           input_text: message,
           session_id: "12345",
