@@ -31,7 +31,8 @@ const ChatBot = () => {
       );
 
       // Add chatbot response to chat history
-      const botResponse = { sender: "bot", text: res.data.response };
+      console.log(res);
+      const botResponse = { sender: "bot", text: res.data };
       setMessages([...messages, newMessage, botResponse]);
     } catch (error) {
       console.error("Error making API call", error);
