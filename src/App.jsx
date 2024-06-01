@@ -41,14 +41,27 @@ const ChatBot = () => {
     // Clear the input field
     setMessage("");
   };
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter") {
+      handleSendMessage();
+    }
+  };
 
   return (
     <div className="flex items-center flex-col justify-center h-screen w-full">
       <div className="border">
         <div className="size-96 border bg-slate-100">
           {messages.map((msg, index) => (
-            <div key={index}>
-              <span>{msg.text}</span>
+            <div key={index} className="px-2 py-4">
+              <span
+                className={`p-2 my-2 rounded-lg max-w-xs ${
+                  msg.sender === "user"
+                    ? "bg-gray-500 text-white self-end"
+                    : "bg-blue-500 text-black self-start"
+                }`}
+              >
+                {msg.text}
+              </span>
             </div>
           ))}
         </div>
@@ -58,6 +71,7 @@ const ChatBot = () => {
             type="text"
             value={message}
             onChange={handleInputChange}
+            onKeyDown={handleKeyDown}
             placeholder="Type your message here"
           />
           <button
