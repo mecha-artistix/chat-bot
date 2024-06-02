@@ -1,9 +1,11 @@
-import { useState } from "react";
-import axios from "axios";
+import { useState, useEffect, useRef } from "react";
 
 const ChatBot = () => {
   const [messages, setMessages] = useState([]);
   const [message, setMessage] = useState("");
+  const inputRef = useRef(null);
+  const messagesEndRef = useRef(null);
+  const eventSourceRef = useRef(null);
 
   const handleInputChange = (e) => {
     setMessage(e.target.value);
@@ -12,61 +14,103 @@ const ChatBot = () => {
   const handleSendMessage = async () => {
     if (message.trim() === "") return;
 
-    // Add user message to chat history
     const newMessage = { sender: "user", text: message };
-    setMessages([...messages, newMessage]);
+    setMessages((messages) => [...messages, newMessage]);
+    setMessage("");
+
+    setTimeout(() => {
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
+    }, 0);
 
     try {
-      const res = await axios.post(
-        "http://5.9.96.58:5000/query",
-        {
+      const response = await fetch("http://5.9.96.58:5000/query", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
           input_text: message,
           session_id: "12345",
-        },
-        {
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
+        }),
+      });
 
-      // Add chatbot response to chat history
-      console.log(res);
-      const botResponse = { sender: "bot", text: res.data };
-      setMessages([...messages, newMessage, botResponse]);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      if (!response.body) {
+        throw new Error("ReadableStream not supported!");
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+      let completeResponse = "";
+      setMessages((messages) => [...messages, { sender: "bot", text: "" }]);
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        completeResponse += chunk;
+
+        // Update the last message (bot's response) with the new chunk
+        setMessages((messages) => {
+          const updatedMessages = [...messages];
+          console.log(updatedMessages);
+          updatedMessages[updatedMessages.length - 1] = {
+            ...updatedMessages[updatedMessages.length - 1],
+            text: completeResponse,
+          };
+          return updatedMessages;
+        });
+
+        console.log("Received Chunk:", chunk);
+      }
     } catch (error) {
       console.error("Error making API call", error);
     }
-
-    // Clear the input field
-    setMessage("");
   };
+
   const handleKeyDown = (e) => {
     if (e.key === "Enter") {
       handleSendMessage();
     }
   };
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
+  useEffect(() => {
+    scrollToBottom();
+    return () => {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+      }
+    };
+  }, [messages]);
   return (
-    <div className="flex items-center flex-col justify-center h-screen w-full">
-      <div className="border">
-        <div className="size-96 border bg-slate-100">
+    <div className="flex items-center flex-col justify-center min-h-screen w-full p-2">
+      <div className="h-screen md:h-96 border rounded-lg w-full max-w-md flex flex-col bg-white shadow-lg">
+        <div className="h-full overflow-y-scroll border bg-slate-100 ">
           {messages.map((msg, index) => (
-            <div key={index} className="px-2 py-4">
-              <span
-                className={`p-2 my-2 rounded-lg max-w-xs ${
-                  msg.sender === "user"
-                    ? "bg-gray-500 text-white self-end"
-                    : "bg-blue-500 text-black self-start"
-                }`}
-              >
-                {msg.text}
-              </span>
+            <div
+              key={index}
+              className={`p-2 my-2 rounded-lg max-w-xs ${
+                msg.sender === "user"
+                  ? "bg-gray-500 text-white self-end"
+                  : "bg-blue-500 text-white self-start"
+              }`}
+            >
+              <span>{msg.text}</span>
             </div>
           ))}
+          <div ref={messagesEndRef} />
         </div>
         <div className="border w-full flax flex-col items-start">
-          <input
+          <textarea
+            ref={inputRef}
             className="w-full border"
             type="text"
             value={message}
